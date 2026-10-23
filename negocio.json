@@ -1,0 +1,41 @@
+{
+  "nombre": "LuxDrive Taller",
+  "horario": {
+    "apertura": "09:00",
+    "cierre": "18:00",
+    "dias": [0, 1, 2, 3, 4, 5],
+    "paso": 30
+  },
+  "servicios": {
+    "cambio_aceite": {
+      "nombre": "Cambio de aceite y filtro",
+      "precio_cop": 180000,
+      "duracion_minutos": 30
+    },
+    "alineacion_balanceo": {
+      "nombre": "Alineación y balanceo",
+      "precio_cop": 120000,
+      "duracion_minutos": 60
+    },
+    "diagnostico": {
+      "nombre": "Diagnóstico con escáner",
+      "precio_cop": 150000,
+      "duracion_minutos": 60
+    },
+    "frenos": {
+      "nombre": "Revisión y cambio de frenos",
+      "precio_cop": 450000,
+      "duracion_minutos": 120
+    },
+    "mantenimiento": {
+      "nombre": "Mantenimiento preventivo completo",
+      "precio_cop": 850000,
+      "duracion_minutos": 180
+    },
+    "detallado": {
+      "nombre": "Detallado premium",
+      "precio_cop": 350000,
+      "duracion_minutos": 120
+    }
+  }
+}
