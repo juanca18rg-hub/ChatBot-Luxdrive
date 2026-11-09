@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-# ChatBot-Luxdrive
-=======
-# LuxDrive Taller — chatbot CRUD (Clase 08–09)
+# LuxDrive Taller — chatbot CRUD (Clase 08–09) y canal de Telegram (Clase 11–12)
 
 Esta versión integra **Gradio + Groq + FastAPI + SQLite** y conserva la estructura del proyecto original. La API es la única capa que lee/escribe las reservas; Gradio no modifica la base directamente.
 
@@ -97,6 +94,94 @@ Prueba con fechas futuras, de lunes a sábado, dentro de 09:00–18:00. Las hora
 
 La documentación interactiva está en `http://127.0.0.1:8011/docs`.
 
+## Canal de Telegram (Clase 11–12)
+
+`bot_telegram.py` lleva el mismo chatbot a Telegram. Recibe el mensaje, llama a `procesar_turno()` (la misma función que usa Gradio) y responde en el mismo chat. En esta versión **solo atiende consultas de servicios, precios y disponibilidad**: nunca llama a `ejecutar(..., confirmar=True)`, así que crear, cambiar o cancelar reservas se hace en la interfaz web. Consultar o listar reservas tampoco se muestra por Telegram, para no exponer datos de otras personas.
+
+### Crear el bot
+
+1. Abre [@BotFather](https://t.me/BotFather) y envía `/newbot`.
+2. Escribe el nombre visible y un nombre de usuario que termine en `bot`.
+3. Guarda el token en privado y pulsa **Iniciar** en el enlace del bot.
+4. Con `/setcommands` puedes mostrar este menú:
+
+```text
+start - Iniciar el asistente
+help - Ver ayuda y ejemplos
+reset - Reiniciar la conversación
+```
+
+- Nombre público o enlace del bot: `[escribe aquí el enlace t.me/...]`
+
+### Instalar y ejecutar
+
+Instala la dependencia (ya está en `requirements.txt`):
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Abre **tres terminales PowerShell** dentro de la carpeta del proyecto.
+
+**Terminal 1 — API y base de datos** (igual que antes):
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8011
+```
+
+**Terminal 2 — Bot de Telegram:**
+
+```powershell
+$env:CHATBOT_API_URL = "http://127.0.0.1:8011"
+$env:GROQ_MODEL = "openai/gpt-oss-120b"
+$claveGroq = Read-Host "API key de Groq" -AsSecureString
+$env:GROQ_API_KEY = [System.Net.NetworkCredential]::new('', $claveGroq).Password
+.\.venv\Scripts\python.exe bot_telegram.py
+```
+
+El programa pide el token de BotFather sin mostrarlo al escribir (también lo lee de `TELEGRAM_BOT_TOKEN` si ya existe). La clave de Groq y el token son credenciales distintas: no las subas a Git ni las pongas en capturas o en la bitácora. Para un mismo token ejecuta un solo proceso; detenlo con `Ctrl+C` antes de iniciarlo en otro computador. El computador que atiende el bot debe permanecer encendido durante la demostración.
+
+La Terminal 3 (Gradio) puede permanecer cerrada.
+
+### Recorrido de un mensaje
+
+```text
+Telegram → CommandHandler / MessageHandler (filtro: chat privado, texto, sin comando)
+        → recibir_texto()  [bot_telegram.py]
+        → procesar_turno() [chatbot_memoria.py] → Groq (consulta_llm.py) → FastAPI → SQLite
+        → formatear_resultado() [bot_telegram.py]
+        → reply_text() → mismo chat
+```
+
+Funciones reutilizadas: `nuevo_historial()` y `procesar_turno()` de `chatbot_memoria.py` y `dinero()` de `consulta_llm.py`. El historial de cada chat vive en `context.chat_data["historial"]`; `/reset` lo reemplaza y no borra las reservas.
+
+### Pruebas
+
+| Prueba | Resultado esperado |
+|---|---|
+| `/start` | Presenta LuxDrive Taller y orienta cómo comenzar |
+| `/help` | Muestra comandos y ejemplos válidos |
+| `¿Qué servicios tienen y cuánto cuestan?` | Lista igual a `GET /api/servicios` |
+| `¿Qué horas hay para alineación y balanceo el [fecha]?` | Horas iguales a `GET /api/disponibilidad` |
+| Dejar un dato pendiente y completarlo en otro mensaje | La consulta continúa con el contexto del chat |
+| `/start` en medio de la consulta | Muestra la bienvenida y conserva el historial |
+| `/reset` y luego solo el dato que faltaba | El contexto anterior ya no completa la solicitud |
+| Un comando que no existe (`/precio`) | Orienta hacia `/start`, `/help` y `/reset` |
+| Enviar una foto | Pide un mensaje de texto |
+| `Quiero reservar un cambio de aceite para Camilo el [fecha] a las 10:00` | Muestra el resumen y avisa que NO se ejecutó; no aparece nada nuevo en `GET /api/reservas` |
+| Detener FastAPI y repetir una consulta | Informa el fallo de conexión sin inventar datos |
+
+Para las fechas usa un día futuro de lunes a sábado.
+
+También hay una prueba automática que no necesita Telegram, Groq ni Internet (simula ambos y no toca `reservas.db`): `.\.venv\Scripts\python.exe prueba_telegram.py`. No reemplaza la prueba con el bot real.
+
+### Si algo falla
+
+- `ModuleNotFoundError: telegram`: instala la dependencia con el mismo Python que ejecuta el bot.
+- `InvalidToken`: revisa el token de BotFather.
+- `Conflict`: hay otra instancia usando ese token; deténla.
+- El bot responde a `/start` pero no a las consultas: revisa `GROQ_API_KEY`, `GROQ_MODEL` y que FastAPI esté en el puerto de `CHATBOT_API_URL`.
+
 ## Datos del negocio
 
 Edita `negocio.json` para cambiar servicios, precios, duración u horario. Los IDs del catálogo son los valores que se guardan en SQLite. Si cambias la duración de un servicio, las reservas ya creadas conservan su duración histórica hasta que sean modificadas.
@@ -119,10 +204,11 @@ LuxDriveChatBotDefi_funcional/
 ├── chatbot_memoria.py      # interpretación, historial y confirmación
 ├── consulta_llm.py         # Groq + cliente HTTP de FastAPI
 ├── app_gradio.py           # interfaz web con botones
+├── bot_telegram.py         # canal de Telegram (solo consultas)
+├── prueba_telegram.py      # prueba automática del adaptador
 ├── negocio.json            # servicios y horario
 ├── requirements.txt
 └── reservas.db             # se crea al iniciar la API
 ```
 
 No se incluye ninguna API key. El archivo `reservas.db` se crea vacío cuando se ejecuta `main.py`.
->>>>>>> master
